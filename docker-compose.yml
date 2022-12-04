@@ -1,0 +1,206 @@
+version: '3.3'
+networks:
+  jina-network:
+    driver: bridge
+services:
+  encoder-rep-0:
+    image: jinahub/29r2b26t:62fd3570d97c773da47e3c1f
+    entrypoint:
+    - jina
+    command:
+    - executor
+    - --name
+    - encoder/rep-0
+    - --extra-search-paths
+    - ''
+    - --uses
+    - config.yml
+    - --port
+    - '8081'
+    - --replicas
+    - '2'
+    - --port-monitoring
+    - '60589'
+    - --uses-metas
+    - '{}'
+    - --native
+    - --workspace
+    - /app/.jina/executor-workspace
+    healthcheck:
+      test: python -m jina.resources.health_check.pod localhost:8081
+      interval: 2s
+    environment:
+    - JINA_LOG_LEVEL=INFO
+    volumes:
+    - /home/aswin/.jina/executor-workspace:/app
+    networks:
+    - jina-network
+  encoder-rep-1:
+    image: jinahub/29r2b26t:62fd3570d97c773da47e3c1f
+    entrypoint:
+    - jina
+    command:
+    - executor
+    - --name
+    - encoder/rep-1
+    - --extra-search-paths
+    - ''
+    - --uses
+    - config.yml
+    - --port
+    - '8081'
+    - --replicas
+    - '2'
+    - --port-monitoring
+    - '60589'
+    - --uses-metas
+    - '{}'
+    - --native
+    - --workspace
+    - /app/.jina/executor-workspace
+    healthcheck:
+      test: python -m jina.resources.health_check.pod localhost:8081
+      interval: 2s
+    environment:
+    - JINA_LOG_LEVEL=INFO
+    volumes:
+    - /home/aswin/.jina/executor-workspace:/app
+    networks:
+    - jina-network
+  indexer-head:
+    image: jinaai/jina:3.7.0-py38-standard
+    entrypoint:
+    - jina
+    command:
+    - executor
+    - --name
+    - indexer/head
+    - --extra-search-paths
+    - ''
+    - --port
+    - '8081'
+    - --runtime-cls
+    - HeadRuntime
+    - --pod-role
+    - HEAD
+    - --shards
+    - '2'
+    - --connection-list
+    - '{"0": ["indexer-0:8081"], "1": ["indexer-1:8081"]}'
+    - --port-monitoring
+    - '64979'
+    - --uses-metas
+    - '{}'
+    - --native
+    healthcheck:
+      test: python -m jina.resources.health_check.pod localhost:8081
+      interval: 2s
+    environment:
+    - JINA_LOG_LEVEL=INFO
+    networks:
+    - jina-network
+  indexer-0:
+    image: jinahub/7yypg8qk:62dda15770f098f869676e84
+    entrypoint:
+    - jina
+    command:
+    - executor
+    - --name
+    - indexer-0
+    - --extra-search-paths
+    - ''
+    - --uses
+    - config.yml
+    - --port
+    - '8081'
+    - --shards
+    - '2'
+    - --port-monitoring
+    - '64979'
+    - --uses-metas
+    - '{}'
+    - --uses-with
+    - '{"dim": 512}'
+    - --native
+    - --workspace
+    - /app/.jina/executor-workspace
+    healthcheck:
+      test: python -m jina.resources.health_check.pod localhost:8081
+      interval: 2s
+    environment:
+    - JINA_LOG_LEVEL=INFO
+    volumes:
+    - /home/aswin/.jina/executor-workspace:/app
+    networks:
+    - jina-network
+  indexer-1:
+    image: jinahub/7yypg8qk:62dda15770f098f869676e84
+    entrypoint:
+    - jina
+    command:
+    - executor
+    - --name
+    - indexer-1
+    - --extra-search-paths
+    - ''
+    - --uses
+    - config.yml
+    - --port
+    - '8081'
+    - --shard-id
+    - '1'
+    - --shards
+    - '2'
+    - --port-monitoring
+    - '64979'
+    - --uses-metas
+    - '{}'
+    - --uses-with
+    - '{"dim": 512}'
+    - --native
+    - --workspace
+    - /app/.jina/executor-workspace
+    healthcheck:
+      test: python -m jina.resources.health_check.pod localhost:8081
+      interval: 2s
+    environment:
+    - JINA_LOG_LEVEL=INFO
+    volumes:
+    - /home/aswin/.jina/executor-workspace:/app
+    networks:
+    - jina-network
+  gateway:
+    image: jinaai/jina:3.7.0-py38-standard
+    entrypoint:
+    - jina
+    command:
+    - gateway
+    - --extra-search-paths
+    - ''
+    - --polling
+    - ANY
+    - --port
+    - '8080'
+    - --expose-endpoints
+    - '{}'
+    - --protocol
+    - HTTP
+    - --graph-description
+    - '{"encoder": ["indexer"], "start-gateway": ["encoder"], "indexer": ["end-gateway"]}'
+    - --deployments-addresses
+    - '{"encoder": ["encoder-rep-0:8081", "encoder-rep-1:8081"], "indexer": ["indexer-head:8081"]}'
+    - --pod-role
+    - GATEWAY
+    - --port-monitoring
+    - '62171'
+    expose:
+    - '8080'
+    ports:
+    - 8080:8080
+    healthcheck:
+      test: python -m jina.resources.health_check.gateway localhost:8080 http
+      interval: 2s
+    environment:
+    - JINA_LOG_LEVEL=INFO
+    networks:
+    - jina-network

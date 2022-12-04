@@ -1,0 +1,13 @@
+jtype: Flow
+with:
+  port: 8080
+  protocol: http
+executors:
+- name: encoder
+  uses: jinahub+docker://CLIPEncoder
+  replicas: 2
+- name: indexer
+  uses: jinahub+docker://AnnLiteIndexer
+  uses_with:
+    dim: 512
+  shards: 2
